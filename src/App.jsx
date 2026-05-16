@@ -241,6 +241,7 @@ export default function App() {
 
   const selected = tasks.find(t => t.id === selectedId);
 
+
     const save = () => {
     if (!form.title.trim() || !form.time) return;
     setTasks(p => [...p, { ...form, id: Date.now(), done: false }]);
@@ -256,7 +257,6 @@ export default function App() {
 
   const toggle = id => setTasks(p => p.map(t => t.id === id ? { ...t, done: !t.done } : t));
   const remove = id => { setTasks(p => p.filter(t => t.id !== id)); setScreen("home"); };
-
   return (
     <div style={{
       minHeight: "100vh", background: "#F8F5F0",
