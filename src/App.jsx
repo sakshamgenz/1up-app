@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const CATEGORIES = [
   { label: "Work",     emoji: "💼", color: "#FFB347" },
@@ -27,15 +27,14 @@ const BG_DOTS = [
   { r:10, c:"#FFD93D", l:"70%", t:"80%", a:3.1 },
 ];
 
-// Helper to play synthesized retro sound effects using Web Audio API
+// Refactored Sound Manager using Native Web Audio API
 const playSound = (type) => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
+    if (!AudioContext) return null;
     const ctx = new AudioContext();
     
     if (type === "add") {
-      // Arpeggio up sound for adding task
       const now = ctx.currentTime;
       [261.63, 329.63, 392.00, 523.25].forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -50,7 +49,6 @@ const playSound = (type) => {
         osc.stop(now + i * 0.08 + 0.1);
       });
     } else if (type === "done") {
-      // High pitched double chime for completion
       const now = ctx.currentTime;
       [587.33, 880.00].forEach((freq, i) => {
         const osc = ctx.createOscillator();
@@ -64,24 +62,22 @@ const playSound = (type) => {
         osc.start(now + i * 0.1);
         osc.stop(now + i * 0.1 + 0.25);
       });
-    } else if (type === "alarm") {
-      // Repeating urgent attention chime
+    } else if (type === "alarm_pulse") {
+      // Single pulse of the alarm loop
       const now = ctx.currentTime;
-      for (let i = 0; i < 3; i++) {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "square";
-        osc.frequency.setValueAtTime(i % 2 === 0 ? 660 : 440, now + i * 0.15);
-        gain.gain.setValueAtTime(0.1, now + i * 0.15);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.15 + 0.12);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now + i * 0.15);
-        osc.stop(now + i * 0.15 + 0.15);
-      }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(587.33, now); // Retro high pitch chime
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.3);
     }
   } catch (e) {
-    console.error("Audio failed to play", e);
+    console.error("Audio engine context block:", e);
   }
 };
 
@@ -234,7 +230,7 @@ function Box({ label, children }) {
 export default function App() {
   const [screen, setScreen]       = useState("home");
   
-  // 1. Fixed data persistence: Pull from local storage on initialization
+  // Storage boot load loader
   const [tasks,  setTasks]        = useState(() => {
     const saved = localStorage.getItem("oneup_tasks");
     if (saved) {
@@ -252,48 +248,49 @@ export default function App() {
   const [filterCat,setFilterCat]  = useState(null);
   const [success,  setSuccess]    = useState(false);
   const [lastTriggeredAlarm, setLastTriggeredAlarm] = useState("");
+  
+  // New States to manage the active ringing modal
+  const [activeAlarmTask, setActiveAlarmTask] = useState(null);
+  const alarmSoundInterval = useRef(null);
 
-  // Sync tasks to LocalStorage automatically whenever the state changes
+  // Sync to Storage
   useEffect(() => {
     localStorage.setItem("oneup_tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  // Request browser Notification permissions for alarms
+  // Request browser Notification configurations
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
   }, []);
 
-  // 2. Alarm Trigger Mechanism: Checks time configurations once every second
+  // Alarm clock system configuration
   useEffect(() => {
     const timer = setInterval(() => {
       const nowTime = new Date();
-      const currentHM = nowTime.toTimeString().slice(0, 5); // Returns format "HH:MM"
-      const dayOfWeek = nowTime.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+      const currentHM = nowTime.toTimeString().slice(0, 5); 
+      const dayOfWeek = nowTime.getDay(); 
 
-      // Prevent triggering multiple alerts inside the same exact minute window
-      if (currentHM === lastTriggeredAlarm) return;
+      // If an alarm is already ringing, or it already fired for this minute window, skip
+      if (activeAlarmTask || currentHM === lastTriggeredAlarm) return;
 
       tasks.forEach(task => {
         if (!task.done && task.time === currentHM) {
-          
-          // Verify repeat criteria constraints
           let shouldTrigger = true;
           if (task.repeat === "Weekdays" && (dayOfWeek === 0 || dayOfWeek === 6)) shouldTrigger = false;
           if (task.repeat === "Weekends" && (dayOfWeek > 0 && dayOfWeek < 6)) shouldTrigger = false;
           
           if (shouldTrigger) {
-            playSound("alarm");
             setLastTriggeredAlarm(currentHM);
+            setActiveAlarmTask(task); // Mounts the modal display
             
+            // Push Native Notification system
             if ("Notification" in window && Notification.permission === "granted") {
-              new Notification(`⏰ Task Reminder: ${task.title}`, {
-                body: `It's ${task.time}! Time to jump onto your goal.`,
+              new Notification(`⏰ Task Due: ${task.title}`, {
+                body: `It's ${task.time}! Time to start working.`,
                 icon: "⚡"
               });
-            } else {
-              alert(`⏰ ALARM: Time to start "${task.title}" (${task.time})!`);
             }
           }
         }
@@ -301,7 +298,33 @@ export default function App() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [tasks, lastTriggeredAlarm]);
+  }, [tasks, lastTriggeredAlarm, activeAlarmTask]);
+
+  // Handles loop audio generation while the modal is up
+  useEffect(() => {
+    if (activeAlarmTask) {
+      // Play immediately on mount
+      playSound("alarm_pulse");
+      // Set recurring pulse loop every 750 milliseconds
+      alarmSoundInterval.current = setInterval(() => {
+        playSound("alarm_pulse");
+      }, 750);
+    } else {
+      // Clean up sound cycle loops on unmount
+      if (alarmSoundInterval.current) {
+        clearInterval(alarmSoundInterval.current);
+        alarmSoundInterval.current = null;
+      }
+    }
+
+    return () => {
+      if (alarmSoundInterval.current) clearInterval(alarmSoundInterval.current);
+    };
+  }, [activeAlarmTask]);
+
+  const dismissAlarm = () => {
+    setActiveAlarmTask(null);
+  };
 
   const now       = new Date();
   const dateStr   = now.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
@@ -316,7 +339,7 @@ export default function App() {
   const save = () => {
     if (!form.title.trim() || !form.time) return;
     setTasks(p => [...p, { ...form, id: Date.now(), done: false }]);
-    playSound("add"); // Sound Effect Played!
+    playSound("add"); 
     setForm({ title:"", time:"", category:0, priority:1, repeat:"Never", note:"" });
     setSuccess(true);
     setTimeout(() => { setSuccess(false); setScreen("home"); }, 950);
@@ -326,7 +349,7 @@ export default function App() {
     setTasks(p => p.map(t => {
       if (t.id === id) {
         const nextDoneState = !t.done;
-        if (nextDoneState) playSound("done"); // Sound Effect Played on Complete!
+        if (nextDoneState) playSound("done"); 
         return { ...t, done: nextDoneState };
       }
       return t;
@@ -351,7 +374,7 @@ export default function App() {
         @keyframes slideUp { from{transform:translateY(50px);opacity:0} to{transform:translateY(0);opacity:1} }
         @keyframes popIn { 0%{transform:scale(0.6);opacity:0} 70%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
         @keyframes successPop { 0%{transform:scale(0)} 70%{transform:scale(1.15)} 100%{transform:scale(1)} }
-        @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+        @keyframes pulseRing { 0% { transform: scale(0.95); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(0.95); opacity: 0.5; } }
         input,textarea { outline:none; font-family:'Nunito',sans-serif; }
         ::-webkit-scrollbar { width:3px; }
         ::-webkit-scrollbar-thumb { background:#E0D5C8; border-radius:4px; }
@@ -367,6 +390,62 @@ export default function App() {
           }}/>
         ))}
       </div>
+
+      {/* ── ALARM MODAL OVERLAY ── */}
+      {activeAlarmTask && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(255, 140, 0, 0.96)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          zIndex: 9999, padding: 24, textAlign: "center", color: "white",
+          animation: "slideUp 0.3s ease-out"
+        }}>
+          <div style={{
+            width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.2)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 54,
+            marginBottom: 24, animation: "bounce 1.5s ease-in-out infinite, pulseRing 2s infinite"
+          }}>
+            {CATEGORIES[activeAlarmTask.category]?.emoji || "⏰"}
+          </div>
+
+          <h1 style={{ fontFamily: "'Fredoka One'", fontSize: 28, marginBottom: 8, letterSpacing: 0.5 }}>
+            Time to Core! ⚡
+          </h1>
+          <p style={{ fontSize: 18, opacity: 0.9, fontWeight: 700, marginBottom: 24 }}>
+            Scheduled for {activeAlarmTask.time}
+          </p>
+
+          <div style={{
+            background: "white", color: "#333", borderRadius: 24, width: "100%",
+            padding: "24px 20px", boxShadow: "0 10px 30px rgba(0,0,0,0.15)", marginBottom: 40
+          }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: "#B08860", marginBottom: 6, letterSpacing: 1 }}>
+              CURRENT MISSION
+            </p>
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: "#FF8C00", lineHeight: 1.3 }}>
+              {activeAlarmTask.title}
+            </h2>
+            {activeAlarmTask.note && (
+              <p style={{ fontSize: 14, color: "#666", marginTop: 10, fontStyle: "italic" }}>
+                "{activeAlarmTask.note}"
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={dismissAlarm}
+            style={{
+              background: "white", color: "#FF8C00", border: "none",
+              borderRadius: 30, padding: "18px 44px", fontFamily: "'Fredoka One'",
+              fontSize: 20, cursor: "pointer", boxShadow: "0 6px 25px rgba(0,0,0,0.2)",
+              transition: "transform 0.1s", transform: "scale(1)"
+            }}
+            onMouseDown={(e) => e.currentTarget.style.transform = "scale(0.96)"}
+            onMouseUp={(e) => e.currentTarget.style.transform = "scale(1)"}
+          >
+            I'm Starting Work! 🚀
+          </button>
+        </div>
+      )}
 
       {/* ── HOME ── */}
       {screen === "home" && (
