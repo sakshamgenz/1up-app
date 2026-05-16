@@ -175,15 +175,27 @@ function Box({ label, children }) {
 
 export default function App() {
   const [screen, setScreen]       = useState("home");
-  const [tasks,  setTasks]        = useState([
-    { id:1, title:"Morning Yoga 🧘",  time:"07:00", category:2, priority:1, repeat:"Daily",    note:"",               done:false },
-    { id:2, title:"Team Standup",     time:"09:30", category:0, priority:2, repeat:"Weekdays", note:"Meeting room B", done:false },
-    { id:3, title:"Read 30 pages 📖", time:"20:00", category:1, priority:0, repeat:"Daily",    note:"",               done:true  },
-  ]);
+  
+  // 1. This reads your saved tasks from storage when the app opens
+  const [tasks,  setTasks]        = useState(() => {
+    const saved = localStorage.getItem("oneup_tasks");
+    return saved ? JSON.parse(saved) : [
+      { id:1, title:"Morning Yoga 🧘",  time:"07:00", category:2, priority:1, repeat:"Daily",    note:"",               done:false },
+      { id:2, title:"Team Standup",     time:"09:30", category:0, priority:2, repeat:"Weekdays", note:"Meeting room B", done:false },
+      { id:3, title:"Read 30 pages 📖", time:"20:00", category:1, priority:0, repeat:"Daily",    note:"",               done:true  },
+    ];
+  });
+
   const [form,     setForm]       = useState({ title:"", time:"", category:0, priority:1, repeat:"Never", note:"" });
   const [selectedId, setSelectedId] = useState(null);
   const [filterCat,setFilterCat]  = useState(null);
   const [success,  setSuccess]    = useState(false);
+
+  // 2. This automatically saves your tasks to storage every time they change
+  useEffect(() => {
+    localStorage.setItem("oneup_tasks", JSON.stringify(tasks));
+  }, [tasks]);
+
 
   const now       = new Date();
   const dateStr   = now.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
