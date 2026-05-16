@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const CATEGORIES = [
   { label: "Work",     emoji: "💼", color: "#FFB347" },
