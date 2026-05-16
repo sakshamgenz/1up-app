@@ -192,10 +192,20 @@ export default function App() {
   const [success,  setSuccess]    = useState(false);
 
   // 2. This automatically saves your tasks to storage every time they change
-  useEffect(() => {
+    useEffect(() => {
     localStorage.setItem("oneup_tasks", JSON.stringify(tasks));
   }, [tasks]);
 
+  // Initialize our audio effects (using clean, short public audio URLs)
+  const taskAddedSound = new Audio("https://assets.mixkit.co/active_storage/sfx/2571/2571-84.wav"); // short pop/click
+  const taskDoneSound  = new Audio("https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav"); // magical chime/success
+  const reminderSound  = new Audio("https://assets.mixkit.co/active_storage/sfx/911/911-84.wav");   // polite digital double beep
+
+  // Track which task times we have already reminded the user about during this session
+  const [firedReminders, setFiredReminders] = useState({});
+
+  const [form,     setForm]       = useState({ title:"", time:"", category:0, priority:1, repeat:"Never", note:"" });
+  
 
   const now       = new Date();
   const dateStr   = now.toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric" });
