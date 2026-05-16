@@ -27,15 +27,15 @@ const BG_DOTS = [
   { r:10, c:"#FFD93D", l:"70%", t:"80%", a:3.1 },
 ];
 
-// Refactored Sound Manager using Native Web Audio API
+// Sound Manager using original smooth wave settings
 const playSound = (type) => {
   try {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (!AudioContext) return null;
     const ctx = new AudioContext();
+    const now = ctx.currentTime;
     
     if (type === "add") {
-      const now = ctx.currentTime;
       [261.63, 329.63, 392.00, 523.25].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -49,11 +49,11 @@ const playSound = (type) => {
         osc.stop(now + i * 0.08 + 0.1);
       });
     } else if (type === "done") {
-      const now = ctx.currentTime;
+      // Restored clear complete audio setup
       [587.33, 880.00].forEach((freq, i) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = "triangle";
+        osc.type = "sine"; // Kept sweet and smooth
         osc.frequency.setValueAtTime(freq, now + i * 0.1);
         gain.gain.setValueAtTime(0.15, now + i * 0.1);
         gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.2);
@@ -63,21 +63,20 @@ const playSound = (type) => {
         osc.stop(now + i * 0.1 + 0.25);
       });
     } else if (type === "alarm_pulse") {
-      // Single pulse of the alarm loop
-      const now = ctx.currentTime;
+      // Reverted back to the original pleasing soft sound signature
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = "square";
-      osc.frequency.setValueAtTime(587.33, now); // Retro high pitch chime
-      gain.gain.setValueAtTime(0.12, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+      osc.type = "sine"; 
+      osc.frequency.setValueAtTime(440, now); 
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now);
-      osc.stop(now + 0.3);
+      osc.stop(now + 0.45);
     }
   } catch (e) {
-    console.error("Audio engine context block:", e);
+    console.error("Audio engine error:", e);
   }
 };
 
@@ -230,7 +229,6 @@ function Box({ label, children }) {
 export default function App() {
   const [screen, setScreen]       = useState("home");
   
-  // Storage boot load loader
   const [tasks,  setTasks]        = useState(() => {
     const saved = localStorage.getItem("oneup_tasks");
     if (saved) {
@@ -249,30 +247,26 @@ export default function App() {
   const [success,  setSuccess]    = useState(false);
   const [lastTriggeredAlarm, setLastTriggeredAlarm] = useState("");
   
-  // New States to manage the active ringing modal
   const [activeAlarmTask, setActiveAlarmTask] = useState(null);
   const alarmSoundInterval = useRef(null);
 
-  // Sync to Storage
   useEffect(() => {
     localStorage.setItem("oneup_tasks", JSON.stringify(tasks));
   }, [tasks]);
 
-  // Request browser Notification configurations
   useEffect(() => {
     if ("Notification" in window && Notification.permission === "default") {
       Notification.requestPermission();
     }
   }, []);
 
-  // Alarm clock system configuration
+  // Alarm core interval
   useEffect(() => {
     const timer = setInterval(() => {
       const nowTime = new Date();
       const currentHM = nowTime.toTimeString().slice(0, 5); 
       const dayOfWeek = nowTime.getDay(); 
 
-      // If an alarm is already ringing, or it already fired for this minute window, skip
       if (activeAlarmTask || currentHM === lastTriggeredAlarm) return;
 
       tasks.forEach(task => {
@@ -283,9 +277,8 @@ export default function App() {
           
           if (shouldTrigger) {
             setLastTriggeredAlarm(currentHM);
-            setActiveAlarmTask(task); // Mounts the modal display
+            setActiveAlarmTask(task);
             
-            // Push Native Notification system
             if ("Notification" in window && Notification.permission === "granted") {
               new Notification(`⏰ Task Due: ${task.title}`, {
                 body: `It's ${task.time}! Time to start working.`,
@@ -300,17 +293,14 @@ export default function App() {
     return () => clearInterval(timer);
   }, [tasks, lastTriggeredAlarm, activeAlarmTask]);
 
-  // Handles loop audio generation while the modal is up
+  // Audio loop hook
   useEffect(() => {
     if (activeAlarmTask) {
-      // Play immediately on mount
       playSound("alarm_pulse");
-      // Set recurring pulse loop every 750 milliseconds
       alarmSoundInterval.current = setInterval(() => {
         playSound("alarm_pulse");
-      }, 750);
+      }, 900); // Relaxed rhythm match for the classic sound signature
     } else {
-      // Clean up sound cycle loops on unmount
       if (alarmSoundInterval.current) {
         clearInterval(alarmSoundInterval.current);
         alarmSoundInterval.current = null;
@@ -349,7 +339,9 @@ export default function App() {
     setTasks(p => p.map(t => {
       if (t.id === id) {
         const nextDoneState = !t.done;
-        if (nextDoneState) playSound("done"); 
+        if (nextDoneState) {
+          playSound("done"); // Fixed: Sound engine context ensures execution
+        }
         return { ...t, done: nextDoneState };
       }
       return t;
@@ -366,7 +358,7 @@ export default function App() {
       position: "relative", overflowX: "hidden",
     }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Fredoka+One&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght=400;600;700;800;900&family=Fredoka+One&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
         @keyframes wiggle { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(6deg)} }
