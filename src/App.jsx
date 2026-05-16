@@ -241,13 +241,18 @@ export default function App() {
 
   const selected = tasks.find(t => t.id === selectedId);
 
-  const save = () => {
+    const save = () => {
     if (!form.title.trim() || !form.time) return;
     setTasks(p => [...p, { ...form, id: Date.now(), done: false }]);
+    
+    // 👇 ADD THIS LINE HERE 👇
+    taskAddedSound.play().catch(e => {});
+
     setForm({ title:"", time:"", category:0, priority:1, repeat:"Never", note:"" });
     setSuccess(true);
     setTimeout(() => { setSuccess(false); setScreen("home"); }, 950);
   };
+
 
   const toggle = id => setTasks(p => p.map(t => t.id === id ? { ...t, done: !t.done } : t));
   const remove = id => { setTasks(p => p.filter(t => t.id !== id)); setScreen("home"); };
