@@ -203,7 +203,31 @@ export default function App() {
 
   // Track which task times we have already reminded the user about during this session
   const [firedReminders, setFiredReminders] = useState({});
+  // Automatically plays a reminder sound when a task time arrives
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const hrs = String(now.getHours()).padStart(2, '0');
+      const mins = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeString = `${hrs}:${mins}`;
 
+      tasks.forEach(task => {
+        // If the task isn't done, matches the current time, and hasn't chimed yet this minute
+        if (!task.done && task.time === currentTimeString && !firedReminders[task.id]) {
+          reminderSound.play().catch(e => console.log("Audio play blocked by browser:", e));
+          
+          // Mark it as fired so it doesn't loop play for the whole 60 seconds
+          setFiredReminders(prev => ({ ...prev, [task.id]: true }));
+        }
+              });
+    }, 1000); // 👈 This correctly closes the setInterval
+
+    return () => clearInterval(timer); // 👈 Clears timer on unmount
+  }, [tasks, firedReminders]); // 👈 This correctly closes the useEffect hook
+
+    return () => clearInterval(timer);
+  }, [tasks, firedReminders]);
+  
   const [form,     setForm]       = useState({ title:"", time:"", category:0, priority:1, repeat:"Never", note:"" });
   
 
