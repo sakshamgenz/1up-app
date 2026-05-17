@@ -14,7 +14,7 @@ const PRIORITIES = [
   { label: "High",   color: "#FF6B6B", icon: "🔴" },
 ];
 
-const REPEAT_OPTIONS = ["Never", "Daily", "Weekly", "Weekdays", "Yuvraj"];
+const REPEAT_OPTIONS = ["Never", "Daily", "Weekly", "Weekdays", "Weekends"];
 
 const BG_DOTS = [
   { r:8,  c:"#FFD93D", l:"8%",  t:"12%", a:3.2 },
