@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/task.dart';
+import '../providers/day_planner_provider.dart';
+import '../theme/app_theme.dart';
 import '../utils/utils.dart';
+import 'task_completion_logger.dart';
 
 class TaskCard extends StatelessWidget {
   final Task task;
-  final VoidCallback onTap;
   final VoidCallback onDelete;
 
   const TaskCard({
     Key? key,
     required this.task,
-    required this.onTap,
     required this.onDelete,
   }) : super(key: key);
 
@@ -20,8 +22,8 @@ class TaskCard extends StatelessWidget {
     final isOverrun = task.status == TaskStatus.overrun;
 
     return GestureDetector(
-      onTap: onTap,
-      onLongPress: onTap,
+      onTap: () => _showCompletionLogger(context),
+      onLongPress: () => _showCompletionLogger(context),
       child: Container(
         width: 240,
         margin: const EdgeInsets.symmetric(vertical: 4.0),
@@ -115,6 +117,27 @@ class TaskCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCompletionLogger(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => TaskCompletionLogger(
+        task: task,
+        onComplete: (log) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Task logged successfully'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        },
       ),
     );
   }
