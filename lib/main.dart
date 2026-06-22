@@ -4,8 +4,10 @@ import 'theme/app_theme.dart';
 import 'providers/day_planner_provider.dart';
 import 'providers/day_review_provider.dart';
 import 'providers/weekly_stats_provider.dart';
+import 'providers/monthly_stats_provider.dart';
 import 'screens/day_planner_screen.dart';
 import 'screens/weekly_overview_screen.dart';
+import 'screens/monthly_stats_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +24,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => DayPlannerProvider()),
         ChangeNotifierProvider(create: (_) => DayReviewProvider()),
         ChangeNotifierProvider(create: (_) => WeeklyStatsProvider()),
+        ChangeNotifierProvider(create: (_) => MonthlyStatsProvider()),
       ],
       child: MaterialApp(
         title: 'JEE Planner',
@@ -51,8 +54,7 @@ class _MainNavigationState extends State<MainNavigation> {
         children: const [
           DayPlannerScreen(),
           WeeklyOverviewScreen(),
-          // Stats screen will be added in Step 7
-          Placeholder(),
+          MonthlyStatsScreen(),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
