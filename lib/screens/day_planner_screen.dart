@@ -3,10 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
 import '../providers/day_planner_provider.dart';
+import '../providers/day_review_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/utils.dart';
 import '../widgets/task_card.dart';
 import '../widgets/add_task_bottom_sheet.dart';
+import '../widgets/day_review_section.dart';
 
 class DayPlannerScreen extends StatefulWidget {
   const DayPlannerScreen({Key? key}) : super(key: key);
@@ -41,7 +43,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
             child: Column(
               children: [
                 _buildTimeline(provider),
-                _buildDayReviewSection(),
+                DayReviewSection(selectedDate: provider.selectedDate),
               ],
             ),
           );
@@ -65,13 +67,18 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
           builder: (context, provider, _) {
             return Expanded(
               child: Center(
-                child: Text(
-                  TimeUtils.formatDateForDisplay(provider.selectedDate),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppColors.primaryText,
-                    fontWeight: FontWeight.w500,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      TimeUtils.formatDateForDisplay(provider.selectedDate),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.primaryText,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             );
@@ -88,150 +95,119 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     final isToday = DateFormat('yyyy-MM-dd').format(provider.selectedDate) ==
         DateFormat('yyyy-MM-dd').format(now);
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Time labels on the left
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: timeSlots.map((time) {
-              return Container(
-                height: 60,
-                width: 50,
-                alignment: Alignment.center,
-                child: Text(
-                  TimeUtils.formatTime(time),
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.grey,
-                    fontFamily: 'monospace',
-                  ),
+    return Column(
+      children: [
+        // Navigation row
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: provider.goToPreviousDay,
+              ),
+              ElevatedButton(
+                onPressed: provider.goToToday,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isToday
+                      ? AppColors.accentOrange
+                      : AppColors.divider,
+                  foregroundColor: isToday ? Colors.white : Colors.grey,
                 ),
-              );
-            }).toList(),
+                child: const Text('Today'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: provider.goToNextDay,
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
-          // Timeline and tasks on the right
-          Expanded(
-            child: Stack(
-              children: [
-                // Background timeline
-                Column(
-                  children: List.generate(
-                    timeSlots.length,
-                    (index) => Container(
-                      height: 60,
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: AppColors.divider,
-                            width: 1,
+        ),
+        // Timeline
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Time labels on the left
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: timeSlots.map((time) {
+                  return Container(
+                    height: 60,
+                    width: 50,
+                    alignment: Alignment.center,
+                    child: Text(
+                      TimeUtils.formatTime(time),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.grey,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(width: 16),
+              // Timeline and tasks on the right
+              Expanded(
+                child: Stack(
+                  children: [
+                    // Background timeline
+                    Column(
+                      children: List.generate(
+                        timeSlots.length,
+                        (index) => Container(
+                          height: 60,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: AppColors.divider,
+                                width: 1,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-                // Current time indicator
-                if (isToday)
-                  Positioned(
-                    top: _getTimelineOffset(now),
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      height: 2,
-                      color: Colors.red,
-                      child: const Align(
-                        alignment: Alignment.centerLeft,
-                        child: CircleAvatar(
-                          radius: 6,
-                          backgroundColor: Colors.red,
+                    // Current time indicator
+                    if (isToday)
+                      Positioned(
+                        top: _getTimelineOffset(now),
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 2,
+                          color: Colors.red,
+                          child: const Align(
+                            alignment: Alignment.centerLeft,
+                            child: CircleAvatar(
+                              radius: 6,
+                              backgroundColor: Colors.red,
+                            ),
+                          ),
                         ),
                       ),
+                    // Task cards
+                    Column(
+                      children: tasks.map((task) {
+                        return Positioned(
+                          top: _getTimelineOffset(task.startTime),
+                          child: TaskCard(
+                            task: task,
+                            onDelete: () => provider.deleteTask(task.id),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  ),
-                // Task cards
-                Column(
-                  children: tasks.map((task) {
-                    return Positioned(
-                      top: _getTimelineOffset(task.startTime),
-                      child: _buildTaskCard(task, context, provider),
-                    );
-                  }).toList(),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTaskCard(Task task, BuildContext context, DayPlannerProvider provider) {
-    return TaskCard(
-      task: task,
-      onTap: () => _showTaskCompletionSheet(context, task),
-      onDelete: () => provider.deleteTask(task.id),
-    );
-  }
-
-  Widget _buildDayReviewSection() {
-    return Container(
-      margin: const EdgeInsets.all(16.0),
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.divider),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Day Review',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryText,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildReviewField('What went well today?'),
-          const SizedBox(height: 12),
-          _buildReviewField('What didn\'t go well?'),
-          const SizedBox(height: 12),
-          _buildReviewField('Tomorrow\'s top priority?'),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accentOrange,
-                foregroundColor: Colors.white,
               ),
-              child: const Text('Save Review'),
-            ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewField(String label) {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: label,
-        hintStyle: const TextStyle(color: Colors.grey),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.divider),
         ),
-        contentPadding: const EdgeInsets.all(12),
-      ),
-      maxLines: 2,
+      ],
     );
   }
 
@@ -260,17 +236,6 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       builder: (context) => AddTaskBottomSheet(
         selectedDate: context.read<DayPlannerProvider>().selectedDate,
       ),
-    );
-  }
-
-  void _showTaskCompletionSheet(BuildContext context, Task task) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(),
     );
   }
 }

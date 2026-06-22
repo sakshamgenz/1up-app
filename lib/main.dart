@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'providers/day_planner_provider.dart';
+import 'providers/day_review_provider.dart';
 import 'screens/day_planner_screen.dart';
 
 void main() async {
@@ -17,6 +18,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => DayPlannerProvider()),
+        ChangeNotifierProvider(create: (_) => DayReviewProvider()),
       ],
       child: MaterialApp(
         title: 'JEE Planner',
